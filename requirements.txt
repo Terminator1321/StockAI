@@ -1,0 +1,9 @@
+Flask==3.0.3
+Flask-Cors==4.0.1
+tensorflow==2.17.0
+pandas==2.2.2
+numpy==1.26.4
+yfinance==0.2.43
+joblib==1.4.2
+python-dotenv==1.0.1
+requests==2.32.3

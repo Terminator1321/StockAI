@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>📈 Stock Tracker + AI Prediction (60 Days)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #f5f6fa;
+      --card: #fff;
+      --shadow: rgba(0,0,0,0.1);
+      --text: #222;
+      --accent: #007bff;
+    }
+
+    body {
+      font-family: "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      margin: 0;
+      padding: 30px;
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 960px;
+      width: 100%;
+      background: var(--card);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 10px 30px var(--shadow);
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0;
+    }
+
+    select, button {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      background: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    canvas {
+      width: 100%;
+      background: #fff;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+
+    #predictionBox {
+      margin-top: 18px;
+      font-size: 17px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(0,123,255,0.3);
+      background: rgba(0,123,255,0.08);
+    }
+
+    #predictionBox.error {
+      background: rgba(255,0,0,0.08);
+      border-color: rgba(255,0,0,0.4);
+    }
+
+    #rangeInfo {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📊 Stock Tracker + AI Predicted Close</h1>
+      <div>
+        <select id="companySelect">
+          <option value="AAPL">AAPL — Apple</option>
+          <option value="MSFT">MSFT — Microsoft</option>
+          <option value="NVDA">NVDA — NVIDIA</option>
+          <option value="TSLA">TSLA — Tesla</option>
+          <option value="AMZN">AMZN — Amazon</option>
+          <option value="AMD">AMD — AMD</option>
+          <option value="NFLX">NFLX — Netflix</option>
+          <option value="HDFCBANK.NS">HDFCBANK.NS — HDFC Bank</option>
+          <option value="ICICIBANK.NS">ICICIBANK.NS — ICICI Bank</option>
+        </select>
+        <button id="refreshBtn">Refresh</button>
+        <button id="downloadCsv">Download CSV</button>
+      </div>
+    </header>
+
+    <canvas id="stockChart" height="380"></canvas>
+    <div id="predictionBox">AI Predicted Close: <b>Loading...</b></div>
+    <div id="rangeInfo"></div>
+  </div>
+
+  <script>
+    let apiKey = "";
+    let chart = null;
+    let lastData = [];
+
+    async function loadApiKey() {
+      try {
+        const res = await fetch("http://127.0.0.1:5000/api-key");
+        const data = await res.json();
+        if (data.key) {
+          apiKey = data.key;
+        } else {
+          alert("API key not found. Please check your backend .env file.");
+        }
+      } catch (err) {
+        alert("Failed to fetch API key: " + err.message);
+      }
+    }
+
+    function buildUrl(symbol, days = 90) {
+      const now = Math.floor(Date.now() / 1000);
+      const past = now - days * 24 * 60 * 60;
+      const region = symbol.endsWith(".NS") ? "IN" : "US";
+      return `https://apidojo-yahoo-finance-v1.p.rapidapi.com/stock/v3/get-chart?interval=1d&symbol=${symbol}&region=${region}&period1=${past}&period2=${now}`;
+    }
+
+    // ✅ Fetch 60-day data
+    async function fetchData(symbol) {
+      const res = await fetch(buildUrl(symbol), {
+        method: "GET",
+        headers: {
+          "x-rapidapi-key": apiKey,
+          "x-rapidapi-host": "apidojo-yahoo-finance-v1.p.rapidapi.com"
+        }
+      });
+      const json = await res.json();
+      const result = json.chart?.result?.[0];
+      if (!result) throw new Error("No data found");
+
+      const timestamps = result.timestamp;
+      const quote = result.indicators.quote[0];
+      const rows = [];
+      for (let i = 0; i < timestamps.length; i++) {
+        if (quote.close[i] != null) {
+          rows.push({
+            date: new Date(timestamps[i] * 1000),
+            open: quote.open[i],
+            high: quote.high[i],
+            low: quote.low[i],
+            close: quote.close[i],
+            volume: quote.volume[i]
+          });
+        }
+      }
+
+      return rows.slice(-60);
+    }
+
+    function renderChart(rows, symbol) {
+      const labels = rows.map(r => r.date.toLocaleDateString());
+      const values = rows.map(r => r.close);
+      if (chart) chart.destroy();
+      chart = new Chart(document.getElementById("stockChart"), {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: `${symbol} Close (Last ${rows.length} days)`,
+            data: values,
+            borderColor: "#007bff",
+            backgroundColor: "rgba(0,123,255,0.05)",
+            tension: 0.25
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: true },
+            tooltip: {
+              callbacks: {
+                label: ctx => `Close: $${ctx.parsed.y.toFixed(2)}`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    async function getPrediction(symbol) {
+      const box = document.getElementById("predictionBox");
+      box.classList.remove("error");
+      box.innerHTML = "AI Predicted Close: <b>Loading...</b>";
+      try {
+        const res = await fetch("http://127.0.0.1:5000/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticker: symbol })
+        });
+        const data = await res.json();
+        if (data.predicted_close) {
+          box.innerHTML = `AI Predicted Close: <b>$${data.predicted_close}</b>`;
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (err) {
+        box.classList.add("error");
+        box.innerHTML = "❌ Prediction Error: " + err.message;
+      }
+    }
+
+    function updateRangeInfo(rows) {
+      const start = rows[0].date.toLocaleDateString();
+      const end = rows[rows.length - 1].date.toLocaleDateString();
+      document.getElementById("rangeInfo").textContent =
+        `Showing ${rows.length} trading days (${start} → ${end})`;
+    }
+
+    function downloadCSV(rows, symbol) {
+      const header = "Date,Open,High,Low,Close,Volume\n";
+      const lines = rows.map(
+        r => `${r.date.toISOString().slice(0, 10)},${r.open},${r.high},${r.low},${r.close},${r.volume}`
+      );
+      const blob = new Blob([header + lines.join("\n")], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${symbol}_last60days.csv`;
+      a.click();
+    }
+
+    async function update(symbol) {
+      try {
+        const rows = await fetchData(symbol);
+        lastData = rows;
+        renderChart(rows, symbol);
+        updateRangeInfo(rows);
+        getPrediction(symbol);
+      } catch (err) {
+        alert("Error loading data: " + err.message);
+      }
+    }
+
+    // 🔄 Setup
+    document.getElementById("refreshBtn").addEventListener("click", () => update(document.getElementById("companySelect").value));
+    document.getElementById("downloadCsv").addEventListener("click", () => {
+      if (!lastData.length) return alert("No data yet!");
+      downloadCSV(lastData, document.getElementById("companySelect").value);
+    });
+    document.getElementById("companySelect").addEventListener("change", e => update(e.target.value));
+    (async () => {
+      await loadApiKey();
+      update(document.getElementById("companySelect").value);
+    })();
+  </script>
+</body>
+</html>
