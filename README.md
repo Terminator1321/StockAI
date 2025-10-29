@@ -27,23 +27,23 @@ It integrates a **Flask backend** (for prediction and API handling) with a **Cha
 
 ---
 
-## 📁 Project Structure
-
+```plaintext
 📂 StockAI
-┣ 📂 templates
-┃ ┗ index.html → Frontend with Chart.js & AI output
-┣ 📂 Models
-┃ ┣ Stock_Predictor_v1.keras → Pretrained model
-┃ ┗ scaler.pkl → Scaler used for normalization
-┣ 📂 Stocks
-┃ ┣ 📂 clean_data
-┃ ┃ ┣ tag.csv
-┃ ┃ ┗ combined_stock_data.csv
-┣ train.ipynb → Model training notebook
-┣ stocks_data_creator.ipynb → Data preprocessing script
-┣ ModelServer.py → Flask backend API
-┣ requirements.txt → Dependencies list
-┗ .env (Not uploaded) → Contains your RAPIDAPI key
+ ┣ 📂 templates
+ ┃ ┗ 📜 index.html              → Frontend with Chart.js & AI output
+ ┣ 📂 Models
+ ┃ ┣ 📜 Stock_Predictor_v1.keras  → Pretrained AI model
+ ┃ ┗ 📜 scaler.pkl                → Data normalization scaler
+ ┣ 📂 Stocks
+ ┃ ┣ 📂 clean_data
+ ┃ ┃ ┣ 📜 tag.csv                 → Company tags & IDs
+ ┃ ┃ ┗ 📜 combined_stock_data.csv → Combined stock dataset (2013–2025)
+ ┣ 📜 train.ipynb                 → Model training notebook
+ ┣ 📜 stocks_data_creator.ipynb   → Data preprocessing & merging script
+ ┣ 📜 ModelServer.py              → Flask backend server & AI API
+ ┣ 📜 requirements.txt            → Python dependencies
+ ┗ 📜 .env (Not uploaded)         → Contains your RapidAPI key
+```
 
 ---
 
